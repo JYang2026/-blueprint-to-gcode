@@ -24,8 +24,10 @@ import logging
 from core.engine import process_blueprint, create_system
 
 # 配置
-UPLOAD_FOLDER = Path(__file__).parent.parent / "uploads"
-OUTPUT_FOLDER = Path(__file__).parent.parent / "outputs"
+BASE_DIR = Path(__file__).parent.parent
+STATIC_DIR = BASE_DIR / "static"
+UPLOAD_FOLDER = BASE_DIR / "uploads"
+OUTPUT_FOLDER = BASE_DIR / "outputs"
 ALLOWED_EXTENSIONS = {'pdf', 'dxf', 'dwg', 'png', 'jpg', 'jpeg', 'tiff'}
 
 # 创建必要的目录
@@ -49,11 +51,6 @@ app = Flask(__name__)
 CORS(app)
 
 # 配置
-BASE_DIR = Path(__file__).parent.parent
-STATIC_DIR = BASE_DIR / "static"
-UPLOAD_FOLDER = BASE_DIR / "uploads"
-OUTPUT_FOLDER = BASE_DIR / "outputs"
-
 app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
 app.config['OUTPUT_FOLDER'] = str(OUTPUT_FOLDER)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB 最大上传
