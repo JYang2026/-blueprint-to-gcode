@@ -157,15 +157,30 @@ class BlueprintRecognizer:
     def recognize_from_pdf(self, pdf_path: str) -> BlueprintInfo:
         """
         从PDF图纸识别信息
-        注意: 这里使用模拟数据，实际需要结合OpenCV+Tesseract OCR
+        优先使用真正的PDF识别，失败则使用模拟数据
         """
+        print(f"[BlueprintRecognizer] 开始识别图纸: {pdf_path}")
+        
+        # 尝试使用真正的PDF识别
+        try:
+            from core.pdf_recognizer import recognize_pdf_simple
+            result = recognize_pdf_simple(pdf_path)
+            if result and 'blueprint' in result:
+                blueprint = result['blueprint']
+                if blueprint.features:
+                    print(f"[BlueprintRecognizer] 成功识别 {len(blueprint.features)} 个特征")
+                    return blueprint
+        except Exception as e:
+            print(f"[BlueprintRecognizer] PDF识别失败: {e}，使用默认数据")
+        
         # 实际实现需要:
         # 1. PDF转图像 (pdf2image)
         # 2. 图像预处理 (OpenCV)
         # 3. 尺寸标注OCR (Tesseract)
         # 4. 几何特征检测 (OpenCV轮廓检测)
         
-        # 这里返回基于示例图纸的识别结果
+        # 这里返回基于示例图纸的识别结果（后备方案）
+        print("[BlueprintRecognizer] 使用默认特征数据")
         info = BlueprintInfo(
             part_number="GZ-305",
             part_name="锁头式轴端5-G50-700A",
@@ -585,12 +600,15 @@ def process_blueprint(file_path: str, material: str = "aluminum") -> Dict:
     system = create_system()
     
     # 1. 识别图纸
+    print(f"正在识别图纸: {file_path}")
     blueprint = system["recognizer"].recognize_from_pdf(file_path)
     
     # 2. 生成加工路径
+    print(f"识别到 {len(blueprint.features)} 个特征，生成加工路径...")
     plan = system["path_generator"].generate_plan(blueprint, material)
     
     # 3. 生成G代码和仿真数据
+    print("生成G代码和仿真数据...")
     result = system["gcode_generator"].generate_with_simulation_data(plan)
     
     # 添加图纸信息
