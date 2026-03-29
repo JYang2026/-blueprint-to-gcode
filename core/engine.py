@@ -157,29 +157,78 @@ class BlueprintRecognizer:
     def recognize_from_pdf(self, pdf_path: str) -> BlueprintInfo:
         """
         从PDF图纸识别信息
-        优先使用真正的PDF识别，失败则使用模拟数据
+        优先级：1. 豆包AI识别 2. PDF识别 3. 默认数据
         """
         print(f"[BlueprintRecognizer] 开始识别图纸: {pdf_path}")
         
-        # 尝试使用真正的PDF识别
+        import os
+        from pathlib import Path
+        
+        # 方法1: 尝试豆包AI识别（如果配置了API Key）
+        doubao_key = os.environ.get("DOUBAO_API_KEY", "")
+        if doubao_key:
+            try:
+                print("[BlueprintRecognizer] 尝试使用豆包AI识别...")
+                # 先转换PDF为图片
+                import subprocess
+                pdf_dir = Path(pdf_path).parent
+                subprocess.run([
+                    'pdftoppm', '-png', '-r', '150',
+                    pdf_path,
+                    str(pdf_dir / 'blueprint')
+                ], capture_output=True, timeout=60)
+                
+                # 调用豆包识别
+                from core.doubao_recognizer import DoubaoBlueprintRecognizer
+                recognizer = DoubaoBlueprintRecognizer(api_key=doubao_key)
+                ai_result = recognizer.recognize_from_pdf_images(str(pdf_dir))
+                
+                if ai_result and ai_result.get('features'):
+                    # 转换为BlueprintInfo
+                    info = BlueprintInfo(
+                        part_number=ai_result.get('part_number', ''),
+                        part_name=ai_result.get('part_name', ''),
+                        scale="1:5",
+                        material=ai_result.get('technical', {}).get('material', '钢材'),
+                        tolerance=ai_result.get('technical', {}).get('tolerance', '±0.1'),
+                        surface_finish=ai_result.get('technical', {}).get('surface_finish', 'Ra3.2')
+                    )
+                    
+                    # 转换AI识别的特征
+                    for feat in ai_result.get('features', []):
+                        if feat.get('type') in ['hole', 'thread_hole']:
+                            circular = CircularFeature(
+                                center=Point(
+                                    feat.get('position', {}).get('x', 0),
+                                    feat.get('position', {}).get('y', 0)
+                                ),
+                                diameter=feat.get('diameter', 10),
+                                depth=feat.get('depth', 20),
+                                feature_type=FeatureType.THREAD if feat.get('is_threaded') else FeatureType.HOLE,
+                                is_threaded=feat.get('is_threaded', False),
+                                thread_pitch=feat.get('pitch', 0)
+                            )
+                            info.features.append(circular)
+                    
+                    print(f"[BlueprintRecognizer] 豆包AI成功识别 {len(info.features)} 个特征")
+                    return info
+                    
+            except Exception as e:
+                print(f"[BlueprintRecognizer] 豆包识别失败: {e}，尝试其他方法")
+        
+        # 方法2: 尝试传统PDF识别
         try:
             from core.pdf_recognizer import recognize_pdf_simple
             result = recognize_pdf_simple(pdf_path)
             if result and 'blueprint' in result:
                 blueprint = result['blueprint']
                 if blueprint.features:
-                    print(f"[BlueprintRecognizer] 成功识别 {len(blueprint.features)} 个特征")
+                    print(f"[BlueprintRecognizer] PDF识别成功 {len(blueprint.features)} 个特征")
                     return blueprint
         except Exception as e:
-            print(f"[BlueprintRecognizer] PDF识别失败: {e}，使用默认数据")
+            print(f"[BlueprintRecognizer] PDF识别失败: {e}")
         
-        # 实际实现需要:
-        # 1. PDF转图像 (pdf2image)
-        # 2. 图像预处理 (OpenCV)
-        # 3. 尺寸标注OCR (Tesseract)
-        # 4. 几何特征检测 (OpenCV轮廓检测)
-        
-        # 这里返回基于示例图纸的识别结果（后备方案）
+        # 方法3: 使用默认数据
         print("[BlueprintRecognizer] 使用默认特征数据")
         info = BlueprintInfo(
             part_number="GZ-305",
@@ -241,7 +290,7 @@ class BlueprintRecognizer:
         ))
         
         return info
-    
+
     def recognize_from_image(self, image_path: str) -> BlueprintInfo:
         """
         从图片识别图纸
