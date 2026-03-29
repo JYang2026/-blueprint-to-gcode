@@ -33,11 +33,12 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
 # 配置日志
+log_file = BASE_DIR / "api.log"
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('api.log'),
+        logging.FileHandler(str(log_file)),
         logging.StreamHandler()
     ]
 )
@@ -48,6 +49,11 @@ app = Flask(__name__)
 CORS(app)
 
 # 配置
+BASE_DIR = Path(__file__).parent.parent
+STATIC_DIR = BASE_DIR / "static"
+UPLOAD_FOLDER = BASE_DIR / "uploads"
+OUTPUT_FOLDER = BASE_DIR / "outputs"
+
 app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
 app.config['OUTPUT_FOLDER'] = str(OUTPUT_FOLDER)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB 最大上传
@@ -66,7 +72,7 @@ def generate_task_id() -> str:
 @app.route('/')
 def index():
     """主页 - 返回静态文件"""
-    return send_from_directory('static', 'index.html')
+    return send_from_directory(STATIC_DIR, 'index.html')
 
 
 @app.route('/api/health', methods=['GET'])
