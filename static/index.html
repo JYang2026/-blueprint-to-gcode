@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能零件加工图识别与G代码生成系统</title>
     
-    <!-- Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/STLLoader.js"></script>
+    <!-- Three.js - 使用国内CDN -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
     
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -375,72 +374,103 @@
         
         // 初始化Three.js场景
         function initSimulation() {
-            const container = document.getElementById('simulation-canvas');
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-            
-            // 创建场景
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a2e);
-            
-            // 创建相机
-            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
-            camera.position.set(200, 200, 300);
-            camera.lookAt(0, 0, 0);
-            
-            // 创建渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(width, height);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
-            
-            // 添加轨道控制器
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            
-            // 添加光源
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(100, 200, 100);
-            scene.add(directionalLight);
-            
-            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-            directionalLight2.position.set(-100, -100, -100);
-            scene.add(directionalLight2);
-            
-            // 添加网格
-            const gridHelper = new THREE.GridHelper(500, 20, 0x444444, 0x222222);
-            scene.add(gridHelper);
-            
-            // 添加坐标轴
-            const axesHelper = new THREE.AxesHelper(100);
-            scene.add(axesHelper);
-            
-            // 创建工件毛坯
-            createWorkpiece({ size: { x: 150, y: 150, z: 50 }, material: 'aluminum', stock: 2 });
-            
-            // 创建刀具
-            createTool(10);
-            
-            // 渲染循环
-            function animate() {
-                animationId = requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
+            try {
+                const container = document.getElementById('simulation-canvas');
+                if (!container) {
+                    console.error('仿真画布元素未找到');
+                    return;
+                }
+                
+                const width = container.clientWidth || 600;
+                const height = container.clientHeight || 450;
+                
+                // 检查Three.js是否加载
+                if (typeof THREE === 'undefined') {
+                    console.error('Three.js未加载');
+                    container.innerHTML = '<div class="text-white p-3">Three.js库加载失败，请检查网络连接</div>';
+                    return;
+                }
+                
+                // 检查OrbitControls是否可用
+                if (typeof THREE.OrbitControls === 'undefined') {
+                    console.warn('OrbitControls未加载，使用默认相机控制');
+                }
+                
+                // 创建场景
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a2e);
+                
+                // 创建相机
+                camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+                camera.position.set(200, 200, 300);
+                camera.lookAt(0, 0, 0);
+                
+                // 创建渲染器
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
+                
+                // 添加轨道控制器（如果可用）
+                if (typeof THREE.OrbitControls !== 'undefined') {
+                    controls = new THREE.OrbitControls(camera, renderer.domElement);
+                    controls.enableDamping = true;
+                    controls.dampingFactor = 0.05;
+                }
+                
+                // 添加光源
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(100, 200, 100);
+                scene.add(directionalLight);
+                
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+                directionalLight2.position.set(-100, -100, -100);
+                scene.add(directionalLight2);
+                
+                // 添加网格
+                const gridHelper = new THREE.GridHelper(500, 20, 0x444444, 0x222222);
+                scene.add(gridHelper);
+                
+                // 添加坐标轴
+                const axesHelper = new THREE.AxesHelper(100);
+                scene.add(axesHelper);
+                
+                // 创建工件毛坯
+                createWorkpiece({ size: { x: 150, y: 150, z: 50 }, material: 'aluminum', stock: 2 });
+                
+                // 创建刀具
+                createTool(10);
+                
+                // 渲染循环
+                function animate() {
+                    animationId = requestAnimationFrame(animate);
+                    if (controls) controls.update();
+                    renderer.render(scene, camera);
+                }
+                animate();
+                
+                // 窗口大小调整
+                window.addEventListener('resize', () => {
+                    const newWidth = container.clientWidth;
+                    const newHeight = container.clientHeight;
+                    if (newWidth > 0 && newHeight > 0) {
+                        camera.aspect = newWidth / newHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(newWidth, newHeight);
+                    }
+                });
+                
+                console.log('Three.js仿真初始化完成');
+            } catch (error) {
+                console.error('Three.js初始化失败:', error);
+                const container = document.getElementById('simulation-canvas');
+                if (container) {
+                    container.innerHTML = '<div class="text-white p-3 bg-danger">仿真初始化失败: ' + error.message + '</div>';
+                }
             }
-            animate();
-            
-            // 窗口大小调整
-            window.addEventListener('resize', () => {
-                const newWidth = container.clientWidth;
-                const newHeight = container.clientHeight;
-                camera.aspect = newWidth / newHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(newWidth, newHeight);
-            });
         }
         
         function createWorkpiece(config) {
