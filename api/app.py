@@ -143,6 +143,8 @@ def upload_file():
             'processing_time': processing_time,
             'blueprint': result['blueprint'],
             'plan': result['plan'],
+            'simulation': result.get('simulation', {}),
+            'gcode': result.get('gcode', ''),
             'gcode_url': f'/api/download/gcode/{task_id}',
             'simulation_url': f'/api/download/simulation/{task_id}'
         })
