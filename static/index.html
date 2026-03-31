@@ -612,7 +612,7 @@
         
         function updateInfoPanel(result) {
             // 零件信息
-            console.log("Blueprint data:", result.blueprint); document.getElementById('part-number').textContent = result.blueprint?.part_number || '-';
+            console.log("Full result:", JSON.stringify(result).substring(0, 500)); document.getElementById('part-number').textContent = result.blueprint?.part_number || '-';
             document.getElementById('part-name').textContent = result.blueprint?.part_name || '-';
             document.getElementById('feature-count').textContent = result.blueprint?.features_count || 0;
             
