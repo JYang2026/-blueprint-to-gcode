@@ -97,24 +97,54 @@ class DoubaoBlueprintRecognizer:
     
     def recognize_from_image(self, image_path: str) -> Dict:
         """从图片识别图纸"""
-        prompt = """这是一张机械零件加工图纸。请仔细分析并提取：
+        prompt = """你是一个专业的机械制图AI助手。请仔细分析这张零件加工图纸，提取所有技术信息。
 
-1. 零件型号：如图纸上标注的型号（如GZ-305, GZ-306等）
-2. 所有孔的特征：位置(相对坐标X/Y)、直径(mm)、深度(mm)、是否螺纹孔
-3. 关键尺寸：总长、外径、螺纹规格
-4. 技术要求：公差、表面粗糙度、材料
+## 必须提取的信息（严格JSON格式）：
 
-请用JSON格式返回，务必包含所有识别到的孔：
+1. **零件基本信息**
+   - part_number: 图纸上的型号（如GZ-305、GZ-308等）
+   - part_name: 零件名称
+
+2. **尺寸参数** - 逐个标注尺寸
+   - 总长(_total_length)
+   - 最大外径(_max_diameter) 
+   - 其他台阶直径
+   - 孔径
+
+3. **技术要求**
+   - surface_finish: 表面粗糙度（如Ra3.2、Ra1.6）
+   - tolerance: 形位公差
+   - material: 材料
+
+4. **加工特征（关键！）** - 所有孔、槽、螺纹等
+   - type: "hole"(光孔) 或 "thread_hole"(螺纹孔)
+   - diameter: 直径mm
+   - depth: 深度mm
+   - position: {x, y} 相对坐标
+   - is_threaded: true/false
+
+## 返回格式（必须是合法JSON）：
+```json
 {
-  "part_number": "GZ-xxx",
-  "part_name": "零件名称", 
+  "part_number": "GZ-305",
+  "part_name": "锁头轴端5-G50-700A",
+  "dimensions": {
+    "总长": "700mm",
+    "最大外径": "50mm",
+    "孔径": "10mm"
+  },
+  "technical": {
+    "表面粗糙度": "Ra3.2",
+    "材料": "45#钢"
+  },
   "features": [
-    {"type": "hole", "diameter": 50, "position": {"x": 0, "y": 0}, "depth": 30, "is_threaded": false},
-    {"type": "thread_hole", "diameter": 20, "pitch": 1.5, "position": {"x": 0, "y": 0}, "depth": 25, "is_threaded": true}
-  ],
-  "dimensions": {"total_length": 700, "outer_diameter": 50, "thread": "M20x1.5"},
-  "technical": {"tolerance": "±0.1", "surface_finish": "Ra3.2", "material": "不锈钢"}
-}"""
+    {"type": "hole", "diameter": 10, "position": {"x": 0, "y": 0}, "depth": 30, "is_threaded": false},
+    {"type": "thread_hole", "diameter": 8, "position": {"x": 20, "y": 0}, "depth": 20, "is_threaded": true}
+  ]
+}
+```
+
+注意：请直接返回JSON，不要有其他文字说明！"""
         
         print(f"[DoubaoRecognizer] 正在调用豆包API分析图纸...")
         
