@@ -660,11 +660,37 @@ def process_blueprint(file_path: str, material: str = "aluminum") -> Dict:
     print("生成G代码和仿真数据...")
     result = system["gcode_generator"].generate_with_simulation_data(plan)
     
-    # 添加图纸信息
+    # 转换特征为字典列表
+    features_list = []
+    for feat in blueprint.features:
+        feat_dict = {
+            "type": feat.feature_type.name.lower() if hasattr(feat, 'feature_type') else "hole",
+            "diameter": getattr(feat, 'diameter', 0),
+            "depth": getattr(feat, 'depth', 0),
+            "position": {"x": getattr(feat, 'center', None).x if hasattr(feat, 'center') and feat.center else 0,
+                        "y": getattr(feat, 'center', None).y if hasattr(feat, 'center') and feat.center else 0},
+            "is_threaded": getattr(feat, 'is_threaded', False),
+        }
+        if hasattr(feat, 'thread_pitch'):
+            feat_dict["pitch"] = feat.thread_pitch
+        features_list.append(feat_dict)
+    
+    # 添加完整的图纸信息（供Word文档生成使用）
     result["blueprint"] = {
         "part_number": blueprint.part_number,
         "part_name": blueprint.part_name,
-        "features_count": len(blueprint.features)
+        "features_count": len(blueprint.features),
+        # 完整数据
+        "dimensions": {
+            "总长": getattr(blueprint, 'total_length', 'N/A'),
+            "最大外径": getattr(blueprint, 'max_diameter', 'N/A'),
+            "材料": blueprint.material or "未指定",
+        },
+        "technical": {
+            "公差": blueprint.tolerance or "未指定",
+            "表面粗糙度": blueprint.surface_finish or "未指定",
+        },
+        "features": features_list
     }
     
     return result
