@@ -66,16 +66,19 @@ class WordDocumentGenerator:
         
         # 处理特征列表
         features_html = ""
-        if features:
+        if features and len(features) > 0:
             for i, feat in enumerate(features, 1):
                 feat_type = feat.get('type', 'unknown')
-                diameter = feat.get('diameter', 'N/A')
+                diameter = feat.get('diameter', 0)
                 position = feat.get('position', {})
-                x = position.get('x', 'N/A')
-                y = position.get('y', 'N/A')
-                depth = feat.get('depth', 'N/A')
+                x = position.get('x', 0)
+                y = position.get('y', 0)
+                depth = feat.get('depth', 0)
                 is_threaded = feat.get('is_threaded', False)
                 
+                if not diameter or diameter == 0:
+                    continue
+                    
                 features_html += f"""
                 <tr>
                     <td>{i}</td>
@@ -86,20 +89,26 @@ class WordDocumentGenerator:
                     <td>{"是" if is_threaded else "否"}</td>
                 </tr>
                 """
-        else:
-            features_html = "<tr><td colspan='6'>无</td></tr>"
+        if not features_html:
+            features_html = "<tr><td colspan='6' style='color:red;'>⚠️ 未识别到任何加工特征</td></tr>"
         
         # 处理尺寸
         dim_list = []
+        has_dimensions = False
         for k, v in dimensions.items():
-            dim_list.append(f"<tr><td>{k}</td><td>{v}</td></tr>")
-        dimensions_html = "".join(dim_list) if dim_list else "<tr><td colspan='2'>无</td></tr>"
+            if v and str(v) not in ['未识别', '未指定', 'N/A', '0', '0.0', '0 mm', 'Φ0 mm']:
+                dim_list.append(f"<tr><td>{k}</td><td>{v}</td></tr>")
+                has_dimensions = True
+        dimensions_html = "".join(dim_list) if dim_list else "<tr><td colspan='2' style='color:red;'>⚠️ 未识别到尺寸参数</td></tr>"
         
         # 处理技术要求
         tech_list = []
+        has_technical = False
         for k, v in technical.items():
-            tech_list.append(f"<tr><td>{k}</td><td>{v}</td></tr>")
-        technical_html = "".join(tech_list) if tech_list else "<tr><td colspan='2'>无</td></tr>"
+            if v and str(v) not in ['未识别', '未指定', 'N/A']:
+                tech_list.append(f"<tr><td>{k}</td><td>{v}</td></tr>")
+                has_technical = True
+        technical_html = "".join(tech_list) if tech_list else "<tr><td colspan='2' style='color:red;'>⚠️ 未识别到技术要求</td></tr>"
         
         # 处理工序列表
         operations_html = ""

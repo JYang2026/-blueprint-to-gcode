@@ -248,68 +248,9 @@ class BlueprintRecognizer:
         except Exception as e:
             print(f"[BlueprintRecognizer] PDF识别失败: {e}")
         
-        # 方法3: 使用默认数据
-        print("[BlueprintRecognizer] 使用默认特征数据")
-        info = BlueprintInfo(
-            part_number="GZ-305",
-            part_name="锁头式轴端5-G50-700A",
-            scale="1:5",
-            material="不锈钢/合金钢",
-            tolerance="±0.1",
-            surface_finish="Ra3.2"
-        )
-        
-        # 识别圆形特征 (从图纸中提取的孔位信息)
-        # 根据PDF图纸分析，有以下特征:
-        
-        # 主轴孔 φ50
-        info.features.append(CircularFeature(
-            center=Point(0, 0),
-            diameter=50,
-            depth=30,
-            feature_type=FeatureType.HOLE
-        ))
-        
-        # 螺纹孔 M20x1.5 (根据图纸标注)
-        info.features.append(CircularFeature(
-            center=Point(0, 0),
-            diameter=20,
-            depth=25,
-            feature_type=FeatureType.THREAD,
-            is_threaded=True,
-            thread_pitch=1.5
-        ))
-        
-        # 端面连接孔 (根据图纸分析)
-        info.features.append(CircularFeature(
-            center=Point(60, 0),
-            diameter=10,
-            depth=15,
-            feature_type=FeatureType.HOLE
-        ))
-        
-        info.features.append(CircularFeature(
-            center=Point(-60, 0),
-            diameter=10,
-            depth=15,
-            feature_type=FeatureType.HOLE
-        ))
-        
-        info.features.append(CircularFeature(
-            center=Point(0, 60),
-            diameter=10,
-            depth=15,
-            feature_type=FeatureType.HOLE
-        ))
-        
-        info.features.append(CircularFeature(
-            center=Point(0, -60),
-            diameter=10,
-            depth=15,
-            feature_type=FeatureType.HOLE
-        ))
-        
-        return info
+        # 如果所有识别方法都失败，返回空BlueprintInfo（让上游处理）
+        print("[BlueprintRecognizer] 所有识别方法均失败，返回空结果")
+        return BlueprintInfo()
 
     def recognize_from_image(self, image_path: str) -> BlueprintInfo:
         """
@@ -687,6 +628,16 @@ def process_blueprint(file_path: str, material: str = "aluminum") -> Dict:
     # 1. 识别图纸
     print(f"正在识别图纸: {file_path}")
     blueprint = system["recognizer"].recognize_from_pdf(file_path)
+    
+    # 检查识别结果
+    if not blueprint.part_number and not blueprint.features:
+        raise ValueError("图纸识别失败：未能从图纸中提取到任何有效信息，请检查图纸图片是否清晰或豆包API是否正常工作")
+    
+    if not blueprint.part_number:
+        raise ValueError("图纸识别失败：未能识别到零件型号，请检查图纸图片是否包含零件信息")
+    
+    if not blueprint.features:
+        raise ValueError("图纸识别失败：未能识别到任何加工特征（孔、槽等），请检查图纸图片是否清晰")
     
     # 2. 生成加工路径
     print(f"识别到 {len(blueprint.features)} 个特征，生成加工路径...")
