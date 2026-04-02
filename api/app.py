@@ -22,6 +22,7 @@ import logging
 
 # 导入核心引擎
 from core.engine import process_blueprint, create_system
+from core.word_generator import WordDocumentGenerator
 
 # 配置
 BASE_DIR = Path(__file__).parent.parent
@@ -172,6 +173,85 @@ def download_simulation(task_id: str):
         return jsonify({'error': '文件不存在'}), 404
     
     return send_file(filepath, as_attachment=True, download_name=f"simulation_{task_id}.json")
+
+
+@app.route('/api/download/word/<task_id>', methods=['GET'])
+def download_word_doc(task_id: str):
+    """
+    下载Word加工技术文档
+    
+    Args:
+        task_id: 任务ID
+    
+    Returns:
+        HTML格式文档（可用WPS/Word打开另存为.docx）
+    """
+    try:
+        # 读取任务结果
+        json_path = OUTPUT_FOLDER / f"{task_id}.json"
+        if not json_path.exists():
+            return jsonify({'error': '任务不存在'}), 404
+        
+        with open(json_path, 'r', encoding='utf-8') as f:
+            result = json.load(f)
+        
+        # 生成Word文档
+        generator = WordDocumentGenerator(str(OUTPUT_FOLDER))
+        doc_path = generator.generate_from_result(result)
+        
+        # 获取原始零件信息用于文件名
+        part_number = result.get('blueprint', {}).get('part_number', 'unknown')
+        
+        return send_file(
+            doc_path, 
+            as_attachment=True, 
+            download_name=f"{part_number}_加工技术文档.html"
+        )
+    
+    except Exception as e:
+        logger.error(f"生成Word文档失败: {str(e)}", exc_info=True)
+        return jsonify({'error': f'生成失败: {str(e)}'}), 500
+
+
+@app.route('/api/generate/word', methods=['POST'])
+def generate_word_doc():
+    """
+    直接从图纸生成Word文档（不生成G代码）
+    
+    Request JSON:
+        blueprint: 图纸识别结果
+        gcode: G代码（可选）
+    
+    Returns:
+        文档下载
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求体为空'}), 400
+        
+        blueprint = data.get('blueprint', {})
+        gcode = data.get('gcode', '')
+        
+        if not blueprint:
+            return jsonify({'error': '缺少blueprint数据'}), 400
+        
+        # 生成文档
+        generator = WordDocumentGenerator(str(OUTPUT_FOLDER))
+        doc_path = generator.generate_html(blueprint, gcode)
+        
+        part_number = blueprint.get('part_number', 'unknown')
+        
+        return send_file(
+            doc_path,
+            as_attachment=True,
+            download_name=f"{part_number}_加工技术文档.html"
+        )
+    
+    except Exception as e:
+        logger.error(f"生成Word文档失败: {str(e)}", exc_info=True)
+        return jsonify({'error': f'生成失败: {str(e)}'}), 500
 
 
 @app.route('/api/simulation/<task_id>', methods=['GET'])

@@ -63,3 +63,78 @@
 - 刀具轨迹显示
 - 材料去除模拟
 - 碰撞检测预警
+
+### 5. Word文档生成模块 (word_generator)
+- 自动生成加工技术文档
+- 包含零件信息、尺寸、技术要求
+- 集成G代码程序
+- 导出为HTML格式（可用WPS/Word打开）
+
+## API接口
+
+### 文档下载接口
+
+```
+# 下载加工技术文档（HTML格式，可用WPS另存为.docx）
+GET /api/download/word/<task_id>
+
+# 直接从图纸数据生成文档
+POST /api/generate/word
+Content-Type: application/json
+
+{
+  "blueprint": {
+    "part_number": "GZ-308",
+    "part_name": "零件名称",
+    "dimensions": {...},
+    "technical": {...},
+    "features": [...]
+  },
+  "gcode": "G代码内容..."
+}
+```
+
+## 快速开始
+
+### 本地运行
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动服务
+python api/app.py
+
+# 访问 http://localhost:5000
+```
+
+### Docker部署
+
+```bash
+docker-compose up -d
+```
+
+## 使用流程
+
+1. **上传图纸** → POST `/api/upload`
+2. **获取结果** → 返回 task_id
+3. **下载G代码** → GET `/api/download/gcode/<task_id>`
+4. **下载加工文档** → GET `/api/download/word/<task_id>`
+
+## 目录结构
+
+```
+blueprint-to-gcode/
+├── api/                  # Flask API服务
+│   └── app.py
+├── core/                 # 核心引擎
+│   ├── engine.py         # 主处理引擎
+│   ├── doubao_recognizer.py  # 豆包AI识别
+│   ├── pdf_recognizer.py     # PDF解析
+│   └── word_generator.py     # Word文档生成
+├── static/               # 前端静态文件
+├── uploads/              # 上传文件
+├── outputs/             # 输出文件
+├── README.md
+└── docker-compose.yml
+```
