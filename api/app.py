@@ -233,13 +233,14 @@ def generate_word_doc():
         
         blueprint = data.get('blueprint', {})
         gcode = data.get('gcode', '')
+        plan_data = data.get('plan', {})
         
         if not blueprint:
             return jsonify({'error': '缺少blueprint数据'}), 400
         
         # 生成文档
         generator = WordDocumentGenerator(str(OUTPUT_FOLDER))
-        doc_path = generator.generate_html(blueprint, gcode)
+        doc_path = generator.generate_html(blueprint, gcode, plan_data)
         
         part_number = blueprint.get('part_number', 'unknown')
         

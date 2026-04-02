@@ -138,6 +138,10 @@ class BlueprintInfo:
     surface_finish: str = ""
     drawing_units: str = "mm"  # mm or inch
     features: List = field(default_factory=list)
+    # 新增尺寸属性
+    total_length: float = 0.0
+    max_diameter: float = 0.0
+    weight: float = 0.0
     
     @property
     def has_features(self) -> bool:
@@ -184,14 +188,30 @@ class BlueprintRecognizer:
                 ai_result = recognizer.recognize_from_pdf_images(str(pdf_dir))
                 
                 if ai_result and ai_result.get('features'):
+                    # 提取尺寸数据
+                    dims = ai_result.get('dimensions', {})
+                    
+                    # 解析总长（支持字符串如"700mm"和数字）
+                    total_len = dims.get('总长', 0)
+                    if isinstance(total_len, str):
+                        total_len = float(total_len.replace('mm', '').replace('MM', '').strip()) if total_len else 0
+                    
+                    # 解析最大外径
+                    max_dia = dims.get('最大外径', 0)
+                    if isinstance(max_dia, str):
+                        max_dia_str = max_dia.replace('Φ', '').replace('φ', '').replace('mm', '').strip()
+                        max_dia = float(max_dia_str) if max_dia_str else 0
+                    
                     # 转换为BlueprintInfo
                     info = BlueprintInfo(
                         part_number=ai_result.get('part_number', ''),
                         part_name=ai_result.get('part_name', ''),
                         scale="1:5",
-                        material=ai_result.get('technical', {}).get('material', '钢材'),
-                        tolerance=ai_result.get('technical', {}).get('tolerance', '±0.1'),
-                        surface_finish=ai_result.get('technical', {}).get('surface_finish', 'Ra3.2')
+                        material=ai_result.get('technical', {}).get('material', dims.get('材料', '钢材')),
+                        tolerance=ai_result.get('technical', {}).get('tolerance', dims.get('公差', '±0.1')),
+                        surface_finish=ai_result.get('technical', {}).get('surface_finish', dims.get('表面粗糙度', 'Ra3.2')),
+                        total_length=total_len,
+                        max_diameter=max_dia,
                     )
                     
                     # 转换AI识别的特征
@@ -614,13 +634,29 @@ class GCodeGenerator:
                 "max_rpm": 5000
             })
         
+        # 提取工序详情
+        operations_list = []
+        for i, op in enumerate(plan.operations, 1):
+            operations_list.append({
+                "序号": i,
+                "工序名称": op.operation_type.value,
+                "刀具": op.tool_type,
+                "刀具直径": op.tool_diameter,
+                "主轴转速": op.spindle_speed,
+                "进给速度": op.feed_rate,
+                "切削深度": op.depth_of_cut if hasattr(op, 'depth_of_cut') else 0,
+                "备注": op.description if hasattr(op, 'description') else ""
+            })
+        
         return {
             "gcode": gcode,
             "simulation": simulation_data,
             "plan": {
                 "total_time": plan.total_time,
                 "operations_count": len(plan.operations),
-                "material": plan.workpiece_material
+                "material": plan.workpiece_material,
+                "workpiece_size": plan.workpiece_size,
+                "operations": operations_list
             }
         }
 
@@ -682,13 +718,15 @@ def process_blueprint(file_path: str, material: str = "aluminum") -> Dict:
         "features_count": len(blueprint.features),
         # 完整数据
         "dimensions": {
-            "总长": getattr(blueprint, 'total_length', 'N/A'),
-            "最大外径": getattr(blueprint, 'max_diameter', 'N/A'),
+            "总长": f"{blueprint.total_length} mm" if blueprint.total_length else "未识别",
+            "最大外径": f"Φ{blueprint.max_diameter} mm" if blueprint.max_diameter else "未识别",
             "材料": blueprint.material or "未指定",
+            "重量": f"{blueprint.weight} kg" if blueprint.weight else "未指定",
         },
         "technical": {
             "公差": blueprint.tolerance or "未指定",
             "表面粗糙度": blueprint.surface_finish or "未指定",
+            "比例": blueprint.scale or "1:1",
         },
         "features": features_list
     }

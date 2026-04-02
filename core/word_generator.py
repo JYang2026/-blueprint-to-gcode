@@ -18,13 +18,14 @@ class WordDocumentGenerator:
         self.output_dir = Path(output_dir) if output_dir else Path("outputs")
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
-    def generate_html(self, blueprint_data: Dict, gcode: str = "") -> str:
+    def generate_html(self, blueprint_data: Dict, gcode: str = "", plan_data: Dict = None) -> str:
         """
         生成HTML格式文档（可转换为Word）
         
         Args:
             blueprint_data: 图纸识别结果
             gcode: G代码内容
+            plan_data: 加工计划数据（包含工序信息）
         
         Returns:
             HTML文档路径
@@ -48,7 +49,8 @@ class WordDocumentGenerator:
             dimensions=dimensions,
             technical=technical,
             features=features,
-            gcode=gcode
+            gcode=gcode,
+            plan_data=plan_data
         )
         
         # 写入文件
@@ -59,7 +61,7 @@ class WordDocumentGenerator:
     
     def _build_html(self, part_number: str, part_name: str, 
                    dimensions: Dict, technical: Dict, 
-                   features: list, gcode: str) -> str:
+                   features: list, gcode: str, plan_data: Dict = None) -> str:
         """构建HTML文档内容"""
         
         # 处理特征列表
@@ -98,6 +100,23 @@ class WordDocumentGenerator:
         for k, v in technical.items():
             tech_list.append(f"<tr><td>{k}</td><td>{v}</td></tr>")
         technical_html = "".join(tech_list) if tech_list else "<tr><td colspan='2'>无</td></tr>"
+        
+        # 处理工序列表
+        operations_html = ""
+        if plan_data and plan_data.get('operations'):
+            for op in plan_data['operations']:
+                operations_html += f"""
+                <tr>
+                    <td>{op.get('序号', '')}</td>
+                    <td>{op.get('工序名称', '')}</td>
+                    <td>{op.get('刀具', '')}</td>
+                    <td>{op.get('刀具直径', '')} mm</td>
+                    <td>{op.get('主轴转速', '')} rpm</td>
+                    <td>{op.get('进给速度', '')} mm/min</td>
+                </tr>
+                """
+        else:
+            operations_html = "<tr><td colspan='6'>无工序数据</td></tr>"
         
         # G代码处理
         gcode_escaped = gcode.replace('<', '&lt;').replace('>', '&gt;')
@@ -256,7 +275,31 @@ class WordDocumentGenerator:
     {features_html}
 </table>
 
-<h2>二、数控加工G代码程序</h2>
+<h2>二、加工工艺流程</h2>
+
+<h3>2.1 工艺参数</h3>
+<table>
+    <tr><th>项目</th><th>数值</th></tr>
+    <tr><td>预计加工时间</td><td>{plan_data.get('total_time', 'N/A')} 分钟</td></tr>
+    <tr><td>加工工序数</td><td>{plan_data.get('operations_count', 0)} 道</td></tr>
+    <tr><td>工件材料</td><td>{plan_data.get('material', 'N/A')}</td></tr>
+    <tr><td>工件尺寸</td><td>{plan_data.get('workpiece_size', 'N/A')}</td></tr>
+</table>
+
+<h3>2.2 加工工序明细</h3>
+<table>
+    <tr>
+        <th>序号</th>
+        <th>工序名称</th>
+        <th>刀具</th>
+        <th>刀具直径</th>
+        <th>主轴转速</th>
+        <th>进给速度</th>
+    </tr>
+    {operations_html}
+</table>
+
+<h2>三、数控加工G代码程序</h2>
 
 <h3>2.1 程序说明</h3>
 <ul>
@@ -298,24 +341,26 @@ class WordDocumentGenerator:
         """
         blueprint = result.get('blueprint', {})
         gcode = result.get('gcode', '')
+        plan_data = result.get('plan', {})
         
-        return self.generate_html(blueprint, gcode)
+        return self.generate_html(blueprint, gcode, plan_data)
 
 
-def generate_tech_document(blueprint_data: Dict, gcode: str = "", output_dir: str = None) -> str:
+def generate_tech_document(blueprint_data: Dict, gcode: str = "", plan_data: Dict = None, output_dir: str = None) -> str:
     """
     便捷函数：生成技术文档
     
     Args:
         blueprint_data: 图纸识别结果
         gcode: G代码
+        plan_data: 加工计划数据
         output_dir: 输出目录
     
     Returns:
         生成的文档路径
     """
     generator = WordDocumentGenerator(output_dir)
-    return generator.generate_html(blueprint_data, gcode)
+    return generator.generate_html(blueprint_data, gcode, plan_data)
 
 
 if __name__ == "__main__":
